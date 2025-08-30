@@ -6,13 +6,18 @@ from config import settings
 class EmbeddingsService:
     def __init__(self):
         if not settings.openai_api_key:
-            raise ValueError("OpenAI API key is required")
+            print("⚠️ WARNING: OpenAI API key is not set. Embeddings service will not work.")
+            self.client = None
+        else:
+            self.client = OpenAI(api_key=settings.openai_api_key)
         
-        self.client = OpenAI(api_key=settings.openai_api_key)
         self.model = "text-embedding-3-small"
     
     async def get_embedding(self, text: str) -> List[float]:
         """単一テキストの埋め込みを取得"""
+        if not self.client:
+            raise Exception("OpenAI API key is not configured. Cannot generate embeddings.")
+        
         try:
             response = self.client.embeddings.create(
                 input=text,
@@ -24,6 +29,9 @@ class EmbeddingsService:
     
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         """複数テキストの埋め込みを一括取得"""
+        if not self.client:
+            raise Exception("OpenAI API key is not configured. Cannot generate embeddings.")
+        
         try:
             response = self.client.embeddings.create(
                 input=texts,
