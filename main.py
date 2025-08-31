@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from config import settings
 
 print("🚀 Starting Legal AI RAG API...")
 
@@ -11,13 +12,13 @@ app = FastAPI(
 
 print("✅ FastAPI app created successfully")
 
+# 環境変数からCORS設定を取得
+allowed_origins = settings.get_allowed_origins()
+print(f"✅ CORS allowed origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://your-frontend-app.vercel.app",  # あなたのVercelドメインに変更
-        "http://localhost:3000",  # ローカル開発用
-        "http://localhost:5173",  # Vite開発用
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
