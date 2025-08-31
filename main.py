@@ -30,9 +30,10 @@ print("✅ CORS middleware added")
 async def startup_event():
     """アプリケーション起動時にルーターを追加"""
     try:
-        from app.routers import search, chat
+        from app.routers import search, chat, debug
         app.include_router(search.router, prefix="/api/v1")
         app.include_router(chat.router, prefix="/api/v1")
+        app.include_router(debug.router, prefix="/api/v1")
         print("✅ Routers loaded successfully")
     except Exception as e:
         print(f"⚠️ Failed to load routers: {e}")
