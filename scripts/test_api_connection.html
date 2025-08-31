@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway API 接続テスト</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .loading { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        input { width: 100%; padding: 8px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Railway API 接続テスト</h1>
+        
+        <div class="test-section">
+            <h2>設定</h2>
+            <label for="apiUrl">Railway API URL:</label>
+            <input type="text" id="apiUrl" placeholder="https://your-app-production.up.railway.app" />
+            <button onclick="saveConfig()">設定保存</button>
+        </div>
+
+        <div class="test-section">
+            <h2>1. ヘルスチェック</h2>
+            <button onclick="testHealth()">ヘルスチェック実行</button>
+            <div id="healthResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. チャット API テスト</h2>
+            <textarea id="chatMessage" placeholder="テストメッセージを入力してください"></textarea>
+            <button onclick="testChat()">チャット送信</button>
+            <div id="chatResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. 検索 API テスト</h2>
+            <textarea id="searchQuery" placeholder="検索クエリを入力してください"></textarea>
+            <button onclick="testSearch()">検索実行</button>
+            <div id="searchResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. CORS テスト</h2>
+            <button onclick="testCORS()">CORS確認</button>
+            <div id="corsResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // 設定の保存と読み込み
+        function saveConfig() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            localStorage.setItem('railwayApiUrl', apiUrl);
+            showResult('設定が保存されました', 'success');
+        }
+
+        function loadConfig() {
+            const savedUrl = localStorage.getItem('railwayApiUrl');
+            if (savedUrl) {
+                document.getElementById('apiUrl').value = savedUrl;
+            }
+        }
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value || 'https://your-app-production.up.railway.app';
+        }
+
+        // 結果表示用のヘルパー関数
+        function showResult(message, type = 'success', elementId = null, data = null) {
+            const html = `
+                <div class="${type}">
+                    <p>${message}</p>
+                    ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+                </div>
+            `;
+            if (elementId) {
+                document.getElementById(elementId).innerHTML = html;
+            }
+        }
+
+        // 1. ヘルスチェックテスト
+        async function testHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            resultDiv.innerHTML = '<div class="loading">ヘルスチェック実行中...</div>';
+            
+            try {
+                const response = await fetch(`${getApiUrl()}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('✅ ヘルスチェック成功', 'success', 'healthResult', data);
+                } else {
+                    showResult('❌ ヘルスチェック失敗', 'error', 'healthResult', data);
+                }
+            } catch (error) {
+                showResult(`❌ エラー: ${error.message}`, 'error', 'healthResult');
+            }
+        }
+
+        // 2. チャットAPIテスト
+        async function testChat() {
+            const message = document.getElementById('chatMessage').value;
+            const resultDiv = document.getElementById('chatResult');
+            
+            if (!message.trim()) {
+                showResult('メッセージを入力してください', 'error', 'chatResult');
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="loading">チャット送信中...</div>';
+            
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: 'test-conversation'
+                    }),
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('✅ チャットAPI成功', 'success', 'chatResult', data);
+                } else {
+                    showResult(`❌ チャットAPI失敗 (${response.status})`, 'error', 'chatResult', data);
+                }
+            } catch (error) {
+                showResult(`❌ エラー: ${error.message}`, 'error', 'chatResult');
+            }
+        }
+
+        // 3. 検索APIテスト
+        async function testSearch() {
+            const query = document.getElementById('searchQuery').value;
+            const resultDiv = document.getElementById('searchResult');
+            
+            if (!query.trim()) {
+                showResult('検索クエリを入力してください', 'error', 'searchResult');
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="loading">検索実行中...</div>';
+            
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        limit: 5
+                    }),
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('✅ 検索API成功', 'success', 'searchResult', data);
+                } else {
+                    showResult(`❌ 検索API失敗 (${response.status})`, 'error', 'searchResult', data);
+                }
+            } catch (error) {
+                showResult(`❌ エラー: ${error.message}`, 'error', 'searchResult');
+            }
+        }
+
+        // 4. CORSテスト
+        async function testCORS() {
+            const resultDiv = document.getElementById('corsResult');
+            resultDiv.innerHTML = '<div class="loading">CORS確認中...</div>';
+            
+            try {
+                // プリフライトリクエストを発生させるため、カスタムヘッダーを追加
+                const response = await fetch(`${getApiUrl()}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Test-Header': 'cors-test'
+                    },
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                };
+                
+                if (response.ok) {
+                    showResult('✅ CORS設定OK', 'success', 'corsResult', corsHeaders);
+                } else {
+                    showResult('❌ CORS設定に問題があります', 'error', 'corsResult', corsHeaders);
+                }
+            } catch (error) {
+                if (error.message.includes('CORS')) {
+                    showResult(`❌ CORS エラー: ${error.message}`, 'error', 'corsResult');
+                } else {
+                    showResult(`❌ エラー: ${error.message}`, 'error', 'corsResult');
+                }
+            }
+        }
+
+        // ページロード時に設定を読み込み
+        window.onload = function() {
+            loadConfig();
+        };
+    </script>
+</body>
+</html>
