@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
+from app.models.schemas import Message
 from .search import search_service
 from .chat import chat_service
 
@@ -10,10 +11,20 @@ class RAGService:
     
     async def chat_with_rag(
         self, 
-        user_query: str, 
+        messages: List[Message], 
         max_context_docs: int = 3
     ) -> Dict[str, Any]:
         """RAGパイプライン: 検索 → 回答生成"""
+        
+        # 最新のユーザーメッセージを取得
+        user_query = ""
+        for message in reversed(messages):
+            if message.role == "user":
+                user_query = message.content
+                break
+        
+        if not user_query:
+            raise ValueError("No user message found in conversation history")
         
         # 1. 関連条文を検索
         search_results = await self.search_service.search_documents(
@@ -23,7 +34,7 @@ class RAGService:
         
         # 2. AI回答を生成
         ai_response = await self.chat_service.generate_response(
-            user_query=user_query,
+            messages=messages,
             context_documents=search_results
         )
         

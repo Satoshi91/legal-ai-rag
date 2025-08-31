@@ -19,16 +19,40 @@ class ChatService:
     
     async def generate_response(
         self, 
-        user_query: str, 
+        messages: List, 
         context_documents: List[Dict[str, Any]]
     ) -> str:
-        """ユーザーの質問と関連条文からAI回答を生成"""
+        """会話履歴と関連条文からAI回答を生成"""
         
         # コンテキスト文書を整形
         context_text = self._format_context(context_documents)
         
-        # プロンプトを構築
-        prompt = self._build_prompt(user_query, context_text)
+        # 会話履歴をOpenRouter形式に変換
+        conversation_messages = []
+        
+        # システムプロンプトを追加
+        system_prompt = f"""あなたは日本の法律に精通した専門家です。正確で分かりやすい法的回答を提供してください。
+
+以下の関連条文を参考に回答してください：
+{context_text}
+
+回答指針：
+1. 関連条文を根拠として明示してください
+2. 法律用語は分かりやすく説明してください
+3. 具体的で実践的なアドバイスを含めてください
+4. 必要に応じて注意事項や例外についても言及してください"""
+
+        conversation_messages.append({
+            "role": "system",
+            "content": system_prompt
+        })
+        
+        # 会話履歴を追加
+        for message in messages:
+            conversation_messages.append({
+                "role": message.role,
+                "content": message.content
+            })
         
         # OpenRouter APIを呼び出し
         try:
@@ -38,16 +62,7 @@ class ChatService:
                     headers=self.headers,
                     json={
                         "model": self.model,
-                        "messages": [
-                            {
-                                "role": "system", 
-                                "content": "あなたは日本の法律に精通した専門家です。正確で分かりやすい法的回答を提供してください。"
-                            },
-                            {
-                                "role": "user", 
-                                "content": prompt
-                            }
-                        ],
+                        "messages": conversation_messages,
                         "temperature": 0.3,
                         "max_tokens": 1500
                     }
@@ -98,23 +113,6 @@ class ChatService:
         
         return "\n".join(context_parts)
     
-    def _build_prompt(self, user_query: str, context: str) -> str:
-        """プロンプトを構築"""
-        return f"""以下の質問に対して、提供された法律条文を参考に回答してください。
-
-【質問】
-{user_query}
-
-【参考となる関連条文】
-{context}
-
-【回答指針】
-1. 関連条文を根拠として明示してください
-2. 法律用語は分かりやすく説明してください
-3. 具体的で実践的なアドバイスを含めてください
-4. 必要に応じて注意事項や例外についても言及してください
-
-【回答】"""
 
 
 # シングルトンインスタンス

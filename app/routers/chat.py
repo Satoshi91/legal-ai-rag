@@ -5,13 +5,17 @@ from app.services.rag import rag_service
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-@router.post("/", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
 async def chat_with_ai(request: ChatRequest):
     """AIチャット（RAG機能付き）"""
     try:
+        # メッセージ履歴の検証
+        if not request.messages:
+            raise HTTPException(status_code=422, detail="Messages array cannot be empty")
+        
         # RAGパイプライン実行
         rag_result = await rag_service.chat_with_rag(
-            user_query=request.message,
+            messages=request.messages,
             max_context_docs=request.max_context_docs
         )
         

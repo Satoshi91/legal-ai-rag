@@ -32,9 +32,14 @@ class HealthResponse(BaseModel):
 
 
 # Chat related models
+class Message(BaseModel):
+    role: str = Field(..., description="Role: 'user' or 'assistant'")
+    content: str = Field(..., description="Message content")
+
+
 class ChatRequest(BaseModel):
-    message: str
-    max_context_docs: int = 3
+    messages: List[Message] = Field(..., description="Conversation history")
+    max_context_docs: int = Field(default=3, description="Maximum number of context documents")
 
 
 class ChatResponse(BaseModel):
