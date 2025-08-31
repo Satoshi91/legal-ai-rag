@@ -11,7 +11,7 @@ class EmbeddingsService:
         else:
             self.client = OpenAI(api_key=settings.openai_api_key)
         
-        self.model = "text-embedding-3-small"
+        self.model = "text-embedding-3-large"
     
     async def get_embedding(self, text: str) -> List[float]:
         """単一テキストの埋め込みを取得"""

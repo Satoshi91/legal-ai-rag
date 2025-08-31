@@ -1,31 +1,24 @@
-import chromadb
-from chromadb.config import Settings
+from pinecone import Pinecone
 from typing import List, Dict, Any, Optional
-import os
 from config import settings
 
 
 class VectorStore:
     def __init__(self):
-        # ChromaDBクライアントを初期化
-        os.makedirs(settings.vector_store_path, exist_ok=True)
+        # Pineconeクライアントを初期化
+        if not settings.pinecone_api_key:
+            raise ValueError("PINECONE_API_KEY is required")
+            
+        self.pc = Pinecone(api_key=settings.pinecone_api_key)
         
-        self.client = chromadb.PersistentClient(
-            path=settings.vector_store_path,
-            settings=Settings(anonymized_telemetry=False)
-        )
+        # インデックス名
+        self.index_name = settings.pinecone_index_name
         
-        # コレクション名
-        self.collection_name = "legal_documents"
-        
-        # コレクションを取得または作成
+        # インデックスに接続
         try:
-            self.collection = self.client.get_collection(self.collection_name)
-        except:
-            self.collection = self.client.create_collection(
-                name=self.collection_name,
-                metadata={"hnsw:space": "cosine"}
-            )
+            self.index = self.pc.Index(self.index_name)
+        except Exception as e:
+            raise Exception(f"Failed to connect to Pinecone index '{self.index_name}': {str(e)}")
     
     def add_documents(
         self, 
@@ -36,12 +29,19 @@ class VectorStore:
     ):
         """文書をベクターストアに追加"""
         try:
-            self.collection.add(
-                documents=documents,
-                metadatas=metadatas,
-                ids=ids,
-                embeddings=embeddings
-            )
+            # Pinecone upsert用のベクターデータを準備
+            vectors = []
+            for i, (doc_id, embedding, metadata) in enumerate(zip(ids, embeddings, metadatas)):
+                # メタデータに文書内容も追加
+                full_metadata = {**metadata, "document": documents[i]}
+                vectors.append({
+                    "id": doc_id,
+                    "values": embedding,
+                    "metadata": full_metadata
+                })
+            
+            # Pineconeにupsert
+            self.index.upsert(vectors=vectors)
             return True
         except Exception as e:
             raise Exception(f"Failed to add documents: {str(e)}")
@@ -53,25 +53,56 @@ class VectorStore:
     ) -> Dict[str, Any]:
         """類似文書を検索"""
         try:
-            results = self.collection.query(
-                query_embeddings=[query_embedding],
-                n_results=n_results,
-                include=["documents", "metadatas", "distances"]
+            # Pineconeで検索を実行
+            pinecone_results = self.index.query(
+                vector=query_embedding,
+                top_k=n_results,
+                include_metadata=True,
+                namespace=""
             )
-            return results
+            
+            # ChromaDB形式のレスポンスに変換
+            documents = []
+            metadatas = []
+            distances = []
+            
+            for match in pinecone_results.matches:
+                # メタデータから文書内容を取得（'original_text'フィールドを使用）
+                if "original_text" in match.metadata:
+                    documents.append(match.metadata["original_text"])
+                    # 文書内容以外のメタデータを抽出し、ChromaDB形式に変換
+                    metadata = {
+                        "law_name": match.metadata.get("LawTitle", ""),
+                        "article": match.metadata.get("ArticleNum", ""),
+                        "title": match.metadata.get("ArticleTitle", ""),
+                        "category": match.metadata.get("LawType", ""),
+                        "law_id": match.metadata.get("LawID", ""),
+                        "filename": match.metadata.get("filename", ""),
+                        "update_date": match.metadata.get("updateDate", "")
+                    }
+                    metadatas.append(metadata)
+                    # Pineconeのスコアは類似度なので、距離に変換（1 - score）
+                    distances.append(1 - match.score)
+            
+            return {
+                "documents": [documents],
+                "metadatas": [metadatas], 
+                "distances": [distances]
+            }
         except Exception as e:
             raise Exception(f"Failed to search documents: {str(e)}")
     
     def get_collection_info(self) -> Dict[str, Any]:
-        """コレクション情報を取得"""
+        """インデックス情報を取得"""
         try:
-            count = self.collection.count()
+            stats = self.index.describe_index_stats()
             return {
-                "collection_name": self.collection_name,
-                "document_count": count
+                "index_name": self.index_name,
+                "document_count": stats.total_vector_count,
+                "dimension": stats.dimension
             }
         except Exception as e:
-            raise Exception(f"Failed to get collection info: {str(e)}")
+            raise Exception(f"Failed to get index info: {str(e)}")
 
 
 # シングルトンインスタンス
