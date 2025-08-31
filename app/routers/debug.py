@@ -3,7 +3,6 @@ from typing import Dict, Any, Optional
 import os
 import sys
 from datetime import datetime
-from config import settings
 
 router = APIRouter()
 
@@ -20,13 +19,17 @@ async def debug_info():
         "DEBUG": bool(os.getenv("DEBUG"))
     }
     
-    # 設定値確認
-    config_values = {
-        "pinecone_index_name": settings.pinecone_index_name,
-        "openrouter_model": settings.openrouter_model,
-        "debug": settings.debug,
-        "app_name": settings.app_name
-    }
+    # 設定値確認（遅延インポート）
+    try:
+        from config import settings
+        config_values = {
+            "pinecone_index_name": settings.pinecone_index_name,
+            "openrouter_model": settings.openrouter_model,
+            "debug": settings.debug,
+            "app_name": settings.app_name
+        }
+    except Exception as e:
+        config_values = {"error": f"Failed to import settings: {str(e)}"}
     
     # Pinecone接続テスト
     pinecone_test = await test_pinecone_connection()
@@ -55,16 +58,19 @@ async def debug_info():
 async def test_pinecone_connection() -> Dict[str, Any]:
     """Pinecone接続をテスト"""
     try:
-        # Pineconeクライアント作成を試行
-        if not settings.pinecone_api_key:
+        # 環境変数から直接取得
+        pinecone_api_key = os.getenv("PINECONE_API_KEY")
+        pinecone_index_name = os.getenv("PINECONE_INDEX_NAME", "legal-documents")
+        
+        if not pinecone_api_key:
             return {
                 "status": "failed",
-                "error": "PINECONE_API_KEY is not set"
+                "error": "PINECONE_API_KEY is not set in environment"
             }
         
         from pinecone import Pinecone
-        pc = Pinecone(api_key=settings.pinecone_api_key)
-        index = pc.Index(settings.pinecone_index_name)
+        pc = Pinecone(api_key=pinecone_api_key)
+        index = pc.Index(pinecone_index_name)
         
         # インデックス統計取得を試行
         stats = index.describe_index_stats()
@@ -88,14 +94,17 @@ async def test_pinecone_connection() -> Dict[str, Any]:
 async def test_openai_connection() -> Dict[str, Any]:
     """OpenAI接続をテスト"""
     try:
-        if not settings.openai_api_key:
+        # 環境変数から直接取得
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        if not openai_api_key:
             return {
                 "status": "not_configured",
-                "error": "OPENAI_API_KEY is not set"
+                "error": "OPENAI_API_KEY is not set in environment"
             }
         
         from openai import OpenAI
-        client = OpenAI(api_key=settings.openai_api_key)
+        client = OpenAI(api_key=openai_api_key)
         
         # 簡単な接続確認（モデル一覧取得）
         # 実際のAPI呼び出しは避けて、クライアント作成のみテスト

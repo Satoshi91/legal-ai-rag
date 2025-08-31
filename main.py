@@ -25,19 +25,22 @@ app.add_middleware(
 
 print("✅ CORS middleware added")
 
-# 遅延読み込みでルーターを追加
-@app.on_event("startup")
-async def startup_event():
-    """アプリケーション起動時にルーターを追加"""
-    try:
-        from app.routers import search, chat, debug
-        app.include_router(search.router, prefix="/api/v1")
-        app.include_router(chat.router, prefix="/api/v1")
-        app.include_router(debug.router, prefix="/api/v1")
-        print("✅ Routers loaded successfully")
-    except Exception as e:
-        print(f"⚠️ Failed to load routers: {e}")
-        # ルーター読み込み失敗でも起動は継続
+# ルーターを追加（エラーハンドリング強化）
+try:
+    from app.routers import debug
+    app.include_router(debug.router, prefix="/api/v1")
+    print("✅ Debug router loaded successfully")
+except Exception as e:
+    print(f"⚠️ Failed to load debug router: {e}")
+
+try:
+    from app.routers import search, chat
+    app.include_router(search.router, prefix="/api/v1")
+    app.include_router(chat.router, prefix="/api/v1")
+    print("✅ Main routers loaded successfully")
+except Exception as e:
+    print(f"⚠️ Failed to load main routers: {e}")
+    # メインルーター読み込み失敗でも起動は継続
 
 
 @app.get("/")
