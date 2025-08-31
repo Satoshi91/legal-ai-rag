@@ -1,6 +1,10 @@
 import httpx
+import json
+import time
 from typing import List, Dict, Any
+from datetime import datetime
 from config import settings
+from app.utils.railway_logger import railway_logger
 
 
 class ChatService:
@@ -56,22 +60,36 @@ class ChatService:
                 "content": message.content
             })
         
+        # OpenRouterリクエスト準備とログ（Railway最適化）
+        openrouter_request = {
+            "model": self.model,
+            "messages": conversation_messages,
+            "temperature": 0.3,
+            "max_tokens": 1500
+        }
+        
+        start_time = time.time()
+        railway_logger.log_openrouter_request(
+            model=self.model,
+            messages_count=len(conversation_messages),
+            temperature=0.3,
+            max_tokens=1500
+        )
+
         # OpenRouter APIを呼び出し
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers=self.headers,
-                    json={
-                        "model": self.model,
-                        "messages": conversation_messages,
-                        "temperature": 0.3,
-                        "max_tokens": 1500
-                    }
+                    json=openrouter_request
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
+                    
+                    # OpenRouterレスポンスログ（Railway最適化）
+                    response_time_ms = (time.time() - start_time) * 1000
                     message = result["choices"][0]["message"]
                     content = message.get("content", "")
                     
@@ -86,9 +104,28 @@ class ChatService:
                                 content = detail.get("summary", "")
                                 break
                     
-                    return content or "申し訳ございませんが、回答を生成できませんでした。"
+                    final_content = content or "申し訳ございませんが、回答を生成できませんでした。"
+                    
+                    railway_logger.log_openrouter_response(
+                        model=result.get("model", self.model),
+                        response_length=len(final_content),
+                        response_time_ms=response_time_ms,
+                        usage=result.get("usage", {})
+                    )
+                    
+                    return final_content
                 else:
-                    print(f"OpenRouter API error: {response.status_code} - {response.text}")
+                    # エラーレスポンス（Railway最適化）
+                    railway_logger.log_error(
+                        error_type="openrouter_api_error",
+                        error_message=f"OpenRouter API error: {response.status_code}",
+                        error_details={
+                            "status_code": response.status_code,
+                            "error_text": response.text,
+                            "response_time_ms": (time.time() - start_time) * 1000
+                        }
+                    )
+                    
                     raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
                     
         except Exception as e:
@@ -102,14 +139,17 @@ class ChatService:
         context_parts = []
         for i, doc in enumerate(documents, 1):
             metadata = doc.get("metadata", {})
-            law_name = metadata.get("law_name", "不明")
-            article = metadata.get("article", "不明")
-            title = metadata.get("title", "")
-            content = doc.get("document", "").split(": ", 1)[-1]  # 冗長部分を除去
+            law_title = metadata.get("LawTitle", "不明")
+            article_num = metadata.get("ArticleNum", 0)
+            article_title = metadata.get("ArticleTitle", "")
+            content = doc.get("document", "")
+            
+            # 条文番号の表示形式を整理
+            article_display = f"第{article_num}条" if article_num > 0 else article_title
             
             context_parts.append(
                 f"【参考条文{i}】\n"
-                f"{law_name} {article} {title}\n"
+                f"{law_title} {article_display}\n"
                 f"{content}\n"
             )
         

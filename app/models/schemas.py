@@ -8,10 +8,15 @@ class SearchRequest(BaseModel):
 
 
 class DocumentMetadata(BaseModel):
-    law_name: str = ""
-    article: Union[str, float] = Field(default="", description="Article number or identifier")
-    title: str = ""
-    category: str = ""
+    ArticleNum: int = Field(default=0, description="Article number")
+    ArticleTitle: str = Field(default="", description="Article title")
+    LawID: str = Field(default="", description="Law ID")
+    LawTitle: str = Field(default="", description="Law title")
+    LawType: str = Field(default="", description="Law type (e.g., Act, CabinetOrder)")
+    filename: str = Field(default="", description="Original filename")
+    original_text: str = Field(default="", description="Original text content")
+    revisionID: str = Field(default="", description="Revision ID")
+    updateDate: str = Field(default="", description="Update date")
 
 
 class SearchResult(BaseModel):

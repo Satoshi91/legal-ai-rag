@@ -1,6 +1,10 @@
 from pinecone import Pinecone
 from typing import List, Dict, Any, Optional
+import json
+import time
+from datetime import datetime
 from config import settings
+from app.utils.railway_logger import railway_logger
 
 
 class VectorStore:
@@ -53,12 +57,38 @@ class VectorStore:
     ) -> Dict[str, Any]:
         """類似文書を検索"""
         try:
+            # Pineconeリクエストログ（Railway最適化）
+            start_time = time.time()
+            railway_logger.log_pinecone_request(
+                operation="query",
+                index_name=self.index_name,
+                vector_dimension=len(query_embedding),
+                top_k=n_results
+            )
+            
             # Pineconeで検索を実行
             pinecone_results = self.index.query(
                 vector=query_embedding,
                 top_k=n_results,
                 include_metadata=True,
                 namespace=""
+            )
+            
+            # Pineconeレスポンスログ（Railway最適化）
+            response_time_ms = (time.time() - start_time) * 1000
+            matches_metadata = [
+                {
+                    "id": match.id,
+                    "score": match.score,
+                    "metadata_keys": list(match.metadata.keys()) if match.metadata else []
+                } for match in pinecone_results.matches
+            ]
+            
+            railway_logger.log_pinecone_response(
+                operation="query",
+                matches_count=len(pinecone_results.matches),
+                response_time_ms=response_time_ms,
+                matches_metadata=matches_metadata
             )
             
             # ChromaDB形式のレスポンスに変換
@@ -70,16 +100,8 @@ class VectorStore:
                 # メタデータから文書内容を取得（'original_text'フィールドを使用）
                 if "original_text" in match.metadata:
                     documents.append(match.metadata["original_text"])
-                    # 文書内容以外のメタデータを抽出し、ChromaDB形式に変換
-                    metadata = {
-                        "law_name": match.metadata.get("LawTitle", ""),
-                        "article": match.metadata.get("ArticleNum", ""),
-                        "title": match.metadata.get("ArticleTitle", ""),
-                        "category": match.metadata.get("LawType", ""),
-                        "law_id": match.metadata.get("LawID", ""),
-                        "filename": match.metadata.get("filename", ""),
-                        "update_date": match.metadata.get("updateDate", "")
-                    }
+                    # Pineconeの元のメタデータをそのまま保持（original_textは除く）
+                    metadata = {k: v for k, v in match.metadata.items() if k != "original_text"}
                     metadatas.append(metadata)
                     # Pineconeのスコアは類似度なので、距離に変換（1 - score）
                     distances.append(1 - match.score)

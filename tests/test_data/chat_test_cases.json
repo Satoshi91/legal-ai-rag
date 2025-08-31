@@ -1,0 +1,132 @@
+[
+  {
+    "name": "基本的な法律質問",
+    "description": "民法に関する基本的な質問",
+    "request": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "契約とは何ですか？"
+        }
+      ],
+      "max_context_docs": 3
+    },
+    "expected_checks": {
+      "contains_japanese": true,
+      "response_length_min": 50
+    }
+  },
+  {
+    "name": "会話履歴を含む質問",
+    "description": "複数ターンの会話",
+    "request": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "民法について教えてください"
+        },
+        {
+          "role": "assistant",
+          "content": "民法は私人間の法律関係を規定する基本的な法律です。"
+        },
+        {
+          "role": "user",
+          "content": "契約の成立要件について詳しく教えてください"
+        }
+      ],
+      "max_context_docs": 5
+    },
+    "expected_checks": {
+      "contains_japanese": true,
+      "response_length_min": 100
+    }
+  },
+  {
+    "name": "具体的な条文に関する質問",
+    "description": "特定の法律条文について",
+    "request": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "民法第1条の信義誠実の原則について詳しく説明してください"
+        }
+      ],
+      "max_context_docs": 3
+    },
+    "expected_checks": {
+      "contains_japanese": true,
+      "response_length_min": 80,
+      "should_contain": ["信義誠実", "原則"]
+    }
+  },
+  {
+    "name": "実務的な法律相談",
+    "description": "実際の法的問題に関する質問",
+    "request": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "賃貸契約で家主が一方的に契約を解除することはできますか？"
+        }
+      ],
+      "max_context_docs": 4
+    },
+    "expected_checks": {
+      "contains_japanese": true,
+      "response_length_min": 100,
+      "should_contain": ["賃貸", "契約"]
+    }
+  },
+  {
+    "name": "商法に関する質問",
+    "description": "商法の基本概念について",
+    "request": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "株式会社の設立手続きについて教えてください"
+        }
+      ],
+      "max_context_docs": 3
+    },
+    "expected_checks": {
+      "contains_japanese": true,
+      "response_length_min": 80
+    }
+  },
+  {
+    "name": "短い質問",
+    "description": "簡潔な質問に対する回答",
+    "request": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "時効とは？"
+        }
+      ],
+      "max_context_docs": 2
+    },
+    "expected_checks": {
+      "contains_japanese": true,
+      "response_length_min": 30
+    }
+  },
+  {
+    "name": "複雑な法的概念",
+    "description": "複雑な法律概念の説明",
+    "request": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "物権と債権の違いについて、具体例を交えて詳しく説明してください"
+        }
+      ],
+      "max_context_docs": 5
+    },
+    "expected_checks": {
+      "contains_japanese": true,
+      "response_length_min": 150,
+      "should_contain": ["物権", "債権"]
+    }
+  }
+]
