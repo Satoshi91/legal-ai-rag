@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional, Union
 
 
 class SearchRequest(BaseModel):
@@ -8,10 +8,10 @@ class SearchRequest(BaseModel):
 
 
 class DocumentMetadata(BaseModel):
-    law_name: str
-    article: str
-    title: str
-    category: str
+    law_name: str = ""
+    article: Union[str, float] = Field(default="", description="Article number or identifier")
+    title: str = ""
+    category: str = ""
 
 
 class SearchResult(BaseModel):
